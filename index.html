@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="5/3/1">
+<meta name="theme-color" content="#0D1117">
+<title>5/3/1 Tracker</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{background:#0D1117;color:#E6EDF3;font-family:-apple-system,BlinkMacSystemFont,sans-serif;overscroll-behavior:none;-webkit-text-size-adjust:100%}
+#root{max-width:480px;margin:0 auto;padding-bottom:calc(72px + env(safe-area-inset-bottom));min-height:100vh}
+input[type=number]{-moz-appearance:textfield}
+input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none}
+textarea{background:#21262D;border:1px solid #30363D;border-radius:6px;color:#E6EDF3;font-size:11px;font-family:monospace;padding:8px;width:100%;outline:none;resize:vertical}
+::-webkit-scrollbar{display:none}
+.hdr{background:#161B22;border-bottom:2px solid #FCC100;padding:10px 16px;padding-top:calc(10px + env(safe-area-inset-top));position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between}
+.nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:#161B22;border-top:1px solid #30363D;display:flex;z-index:20;padding-bottom:env(safe-area-inset-bottom)}
+.nb{flex:1;padding:8px 1px;background:none;border:none;font-size:10px;cursor:pointer;font-family:inherit}
+.wk{padding:5px 11px;border-radius:6px;border:none;font-size:13px;cursor:pointer;font-family:inherit}
+.card{background:#161B22;border-radius:10px;padding:14px 16px;margin-bottom:12px;border:1px solid #30363D}
+.sr{display:flex;align-items:center;gap:8px;padding:8px 6px}
+.ch{display:flex;font-size:10px;color:#484F58;margin-bottom:4px;gap:8px}
+.inp{background:#21262D;border-radius:6px;padding:6px 8px;color:#E6EDF3;font-size:14px;width:54px;text-align:center;outline:none;font-family:inherit}
+.btn{border:none;border-radius:8px;padding:10px 16px;font-weight:bold;font-size:13px;cursor:pointer;font-family:inherit}
+.cb{background:none;border:none;color:#E6EDF3;width:100%;text-align:left;cursor:pointer;display:flex;justify-content:space-between;padding:0;font-family:inherit;align-items:center}
+.wi{font-size:13px;padding:5px 0;border-bottom:1px solid #30363D;color:#8B949E}
+.ar{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #30363D}
+.tag{border-radius:4px;padding:2px 7px;font-size:11px;font-weight:bold;flex-shrink:0;margin-left:8px}
+.ph-btn{padding:8px 14px;border-radius:8px;border:2px solid transparent;font-size:12px;font-weight:bold;cursor:pointer;font-family:inherit}
+.tm-inp{background:#21262D;border-radius:4px;padding:2px;color:#E6EDF3;font-size:10px;width:36px;text-align:center;outline:none;font-family:inherit}
+.am-inp{background:#21262D;border-radius:3px;padding:2px;color:#F44336;font-size:10px;width:30px;text-align:center;outline:none;font-family:inherit}
+</style>
+</head>
+<body>
+<div id="root"><div style="color:#FCC100;padding:40px;text-align:center">Loading...</div></div>
+<script>
+var LIFTS={
+  row:  {name:'Bent Over Row',          short:'Row',       type:'Upper',clr:'#1565C0',inc:5},
+  ohp:  {name:'OHP (Axle)',              short:'OHP',       type:'Upper',clr:'#C62828',inc:5},
+  pp:   {name:'Push Press (off blocks)', short:'Push Press',type:'Upper',clr:'#E65100',inc:5},
+  squat:{name:'Squat (SSB to Low Bar)', short:'Squat',     type:'Lower',clr:'#2E7D32',inc:10},
+  bench:{name:'Competition Bench',      short:'Bench',     type:'Upper',clr:'#C62828',inc:5},
+  pd:   {name:'Pull Down',              short:'Pull Down', type:'Upper',clr:'#1565C0',inc:5},
+  dl:   {name:'Deadlift',               short:'Deadlift',  type:'Lower',clr:'#2E7D32',inc:10}
+};
+var LIFT_IDS=['row','ohp','pp','squat','bench','pd','dl'];
+
+var PRO_WK=[
+  {pcts:[.65,.75,.85],fslPct:.65,label:'65/75/85%'},
+  {pcts:[.70,.80,.90],fslPct:.70,label:'70/80/90%'},
+  {pcts:[.75,.85,.95],fslPct:.75,label:'75/85/95%'},
+  {pcts:[.65,.65,.65],fslPct:null,label:'Deload 65%'}
+];
+var AMRAP_WK=[
+  {pcts:[.65,.75,.85],reps:['5','5','AMRAP'],label:'5/5/AMRAP 65/75/85%'},
+  {pcts:[.70,.80,.90],reps:['3','3','AMRAP'],label:'3/3/AMRAP 70/80/90%'},
+  {pcts:[.75,.85,.95],reps:['5','3','AMRAP'],label:'5/3/AMRAP 75/85/95%'},
+  {pcts:[.65,.65,.65],reps:['5','5','5'],    label:'Deload 3x5 65%'}
+];
+var FSL_SETS={1:3,2:5};
+var FSL_GUIDE={
+  1:'Phase 1 (cut): 3 sets max. Deficit limits recovery.',
+  2:'Phase 2: all 5 sets available. Add set 4 when set 3 feels like 70% effort with 3-4 reps still in tank. Same for set 5.'
+};
+
+var PHASES=[
+  {id:1,label:'Phase 1',full:'Phase 1 - CUT',clr:'#1565C0',
+   desc:'Athletic/Power focus - 5s PRO FSL - Power first',criteria:'Hit 180 lbs on MacroFactor trend'},
+  {id:2,label:'Phase 2',full:'Phase 2 - MAINTAIN',clr:'#2E7D32',
+   desc:'Strength focus - Main lifts first - Low bar returns',criteria:'Low bar pattern solid - body settled at 180'},
+  {id:3,label:'Phase 3+',full:'Phase 3 - BULK (coming)',clr:'#C62828',
+   desc:'Push press - arm work - hypertrophy - coming at Phase 3',criteria:'Ready to bulk - push press technique established'}
+];
+
+var ACC={
+  1:{
+    d1:{pwrPos:'first',
+      power:[{n:'Plyo Push-Up',s:'3x5',d:'Upper body push power - max intent each rep'}],
+      acc:[{n:'Face Pull',s:'3x15',d:'Rear delt + posterior capsule - non-negotiable'}],
+      fin:'Dead Bug - 3x8 each side',
+      wu:['Cat-cow x10','Foam roller thoracic x10','Band pull-apart x15','Band ER x15ea','Dead hang 20-30s','Wall slides x10','Hip hinge practice x10 light KB','Iron Neck 3-5 min - rotation + flexion/extension all planes. Also good as daily home session.','Ulnar nerve floss x10-15 - arm out to side elbow straight wrist bent back tilt head away, then bend elbow hand to ear while tilting head toward shoulder. Slow controlled oscillation.'],
+      cd:['Cross-body shoulder 45s ea','Lat stretch 45s ea','Childs pose 60s','Wrist stretch 30s ea','Overhead tricep stretch 60s ea - raise arm overhead bend elbow hand behind head, gentle pressure back and down']},
+    d2:{pwrPos:'first',
+      power:[{n:'Box Jump',s:'3x3',d:'Low box - step down, full reset each rep'}],
+      acc:[
+        {n:'Hip Thrust machine',s:'3x5 heavy',d:'Glute power - primary 1st step driver'},
+        {n:'Nordic Curl',s:'3x5',d:'Eccentric only to start - hamstring resilience'},
+        {n:'Copenhagen Plank',s:'2-3 sets each side',d:'Stage 1: knee on bench, static hold 3x20-30s each side. Stage 2: foot on bench, static hold 3x20-30s. Stage 3: foot on bench, active adduction hold 3x20-30s. Stage 4: foot on bench bottom knee bent, dynamic rotation - controlled tempo each direction stop at moderate fatigue. Progress when current stage feels controlled at top of time range. Most people spend several weeks at Stage 1.'}
+      ],
+      fin:'McGill Side Plank - 30-45s each side',
+      wu:['McGill bird dog x8ea','90/90 hip x5ea','Banded clamshell x15ea','Ankle dorsiflexion x10','Goblet squat x10 light','TKE with band x15ea - band behind knee, straighten fully squeezing VMO, hold 1-2s at top. VMO activation and patellar tracking health.','Psoas march with band x10ea - band anchored low, drive knee up against resistance, hold 2-3s at top, control down. Hip flexor strength not a stretch.'],
+      cd:['Pigeon pose 60-90s ea','Couch stretch 60s ea','Supine knee-to-chest 45s ea','Hamstring stretch 45s','Cossack squat x8 BW']},
+    d3:{pwrPos:'first',
+      power:[{n:'Lateral Bound',s:'3x3ea',d:'1st step lateral power - full reset each rep'}],
+      acc:[{n:'Cable Lateral Raise',s:'3x15-20',d:'Medial delt - scapular plane, stop at shoulder height'}],
+      fin:'Lateral Bound - 3x3 each direction',
+      wu:['Cat-cow x10','Band pull-apart x15','Band ER x15ea','Wall slides x10','Dead hang 20s','Wrist circles x10'],
+      cd:['Pec stretch 45s ea','Cross-body shoulder 45s ea','Lat stretch 45s ea','Wrist stretch 30s ea','Overhead tricep stretch 60s ea']},
+    d4:{pwrPos:'first',
+      power:[{n:'Broad Jump',s:'3x3',d:'Horizontal power - most specific to 1st step, full reset'}],
+      acc:[
+        {n:'KB Swing',s:'3-5x10',d:'Posterior chain power'},
+        {n:'Nordic Curl',s:'3x5',d:'Eccentric only - hamstring resilience'},
+        {n:'45 Degree Back Extension',s:'5 rounds 30s on/30s off',d:'Albersworth protocol. Goal 12-16 reps in the 30s. Bodyweight to start. Progress until 5 rounds without dying of a low back pump, then add DB at 5% of DL max (approx 25 lbs). Once 5 rounds with that load, switch to double progression 3x10-15.'}
+      ],
+      fin:'Sandbag To Shoulder (conditioning)',
+      wu:['McGill Big 3 (curl-up + bird dog + side plank)','Cat-cow x10','Glute bridge x15','Clamshell x15ea','Light KB deadlift x10','Tibialis anterior raises 2x20 - heels on step or plate, lift toes toward shin, 1-2s hold at top. Ankle health and shin splint prevention for sprint work.'],
+      cd:['Pigeon pose 90s ea','Supine twist 60s ea','Couch stretch 60s ea','Seated forward fold 60s']}
+  },
+  2:{
+    d1:{pwrPos:'last',
+      power:[{n:'Plyo Push-Up',s:'2x5',d:'Maintenance - max intent'}],
+      acc:[{n:'Face Pull',s:'3x15',d:'Rear delt - non-negotiable'},{n:'Hammer Curl',s:'2-3x10-15',d:'Double progression 10-15 reps - first direct arm work'}],
+      fin:'Dead Bug - 3x8 each side',
+      wu:['Cat-cow x10','Foam roller thoracic x10','Band pull-apart x15','Band ER x15ea','Dead hang 20-30s','Wall slides x10','Push press technique practice - bar only x10 (prep for Phase 3)','Iron Neck 3-5 min - rotation + flexion/extension all planes.','Ulnar nerve floss x10-15 - arm out to side elbow straight wrist bent back tilt head away, then bend elbow hand to ear while tilting head toward shoulder. Slow controlled oscillation.'],
+      cd:['Cross-body shoulder 45s ea','Lat stretch 45s ea','Childs pose 60s','Wrist stretch 30s ea','Overhead tricep stretch 60s ea']},
+    d2:{pwrPos:'last',
+      power:[{n:'Box Jump',s:'2x3',d:'Maintenance'}],
+      acc:[
+        {n:'Hip Thrust machine',s:'3x5 heavy',d:'Glute power'},
+        {n:'Nordic Curl',s:'3x5',d:'Eccentric - sprint prep'},
+        {n:'Copenhagen Plank',s:'2-3 sets each side',d:'Stage 1: knee on bench, static hold 3x20-30s each side. Stage 2: foot on bench, static hold 3x20-30s. Stage 3: foot on bench, active adduction hold 3x20-30s. Stage 4: foot on bench bottom knee bent, dynamic rotation - controlled tempo each direction stop at moderate fatigue. Progress when current stage feels controlled at top of time range.'}
+      ],
+      fin:'McGill Side Plank - 30-45s each side',
+      wu:['McGill bird dog x8ea','90/90 hip x5ea','Banded clamshell x15ea','Ankle dorsiflexion x10','Goblet squat x10 light','TKE with band x15ea - band behind knee, straighten fully squeezing VMO, hold 1-2s at top. VMO activation and patellar tracking health.','Psoas march with band x10ea - band anchored low, drive knee up against resistance, hold 2-3s at top, control down. Hip flexor strength not a stretch.'],
+      cd:['Pigeon pose 60-90s ea','Couch stretch 60s ea','Supine knee-to-chest 45s ea','Hamstring stretch 45s']},
+    d3:{pwrPos:'last',
+      power:[{n:'Med Ball Rotational Slam',s:'2x5ea',d:'Maintenance - hips drive first'}],
+      acc:[{n:'Hammer Curl',s:'2-3x10-15',d:'Double progression'},{n:'Cable Lateral Raise',s:'3x15-20',d:'Medial delt'}],
+      fin:'Dead Bug - 3x8 each side',
+      wu:['Cat-cow x10','Band pull-apart x15','Band ER x15ea','Wall slides x10','Dead hang 20s','Wrist circles x10'],
+      cd:['Pec stretch 45s ea','Cross-body shoulder 45s ea','Lat stretch 45s ea','Wrist stretch 30s ea','Overhead tricep stretch 60s ea']},
+    d4:{pwrPos:'none',
+      power:[],
+      acc:[
+        {n:'KB Swing',s:'3-5x10',d:'Posterior chain power'},
+        {n:'Nordic Curl',s:'3x5',d:'Eccentric - sprint prep'},
+        {n:'45 Degree Back Extension',s:'5 rounds 30s on/30s off',d:'Albersworth protocol. Goal 12-16 reps in the 30s. Bodyweight to start. Progress until 5 rounds without dying of a low back pump, then add DB at 5% of DL max (approx 25 lbs). Once 5 rounds with that load, switch to double progression 3x10-15.'}
+      ],
+      fin:'Sandbag To Shoulder (conditioning)',
+      wu:['McGill Big 3','Cat-cow x10','Glute bridge x15','Clamshell x15ea','Light KB deadlift x10','Tibialis anterior raises 2x20 - heels on step or plate, lift toes toward shin, 1-2s hold at top. Ankle health and shin splint prevention.'],
+      cd:['Pigeon pose 90s ea','Supine twist 60s ea','Couch stretch 60s ea','Seated forward fold 60s']}
+  }
+};
+
+var ST={tab:'d1',phase:1,cycle:1,week:1,
+  tms:{row:{},ohp:{},pp:{},squat:{},bench:{},pd:{},dl:{}},
+  logs:{row:{},ohp:{},pp:{},squat:{},bench:{},pd:{},dl:{}},
+  amraps:{ohp:{},pp:{},squat:{},bench:{},pd:{},dl:{}},
+  ach_weeks:0,cur_weight:219
+};
+var KEY='531-v2';
+
+function save(){try{localStorage.setItem(KEY,JSON.stringify(ST));}catch(e){}}
+function load(){
+  try{
+    var s=localStorage.getItem(KEY);if(!s)return;
+    var d=JSON.parse(s);
+    ST.tab=d.tab||'d1';ST.phase=d.phase||1;ST.cycle=d.cycle||1;ST.week=d.week||1;
+    ST.tms=d.tms||{row:{},ohp:{},pp:{},squat:{},bench:{},pd:{},dl:{}};
+    ST.logs=d.logs||{row:{},ohp:{},pp:{},squat:{},bench:{},pd:{},dl:{}};
+    ST.amraps=d.amraps||{ohp:{},pp:{},squat:{},bench:{},pd:{},dl:{}};
+    ST.ach_weeks=d.ach_weeks||0;ST.cur_weight=d.cur_weight||219;
+  }catch(e){}
+}
+
+function r5(n){return Math.round(n/5)*5;}
+function cWt(tm,pct){return tm?r5(tm*pct):0;}
+function brz(w,r){if(!w||!r||r<=0||r>=37)return 0;return Math.round(w*36/(37-r)*10)/10;}
+function getTM(id){var t=ST.tms[id];return(t&&t[ST.cycle])?t[ST.cycle]:0;}
+function lk(){return ST.cycle+'_'+ST.week;}
+function gL(id,f){var k=lk();var l=ST.logs[id]&&ST.logs[id][k];if(!l)return'';return l[f]!==undefined?l[f]:'';}
+function sprintOK(){return ST.ach_weeks>=12&&ST.cur_weight<200;}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
+
+function inp(id,f,ph,clr,val){
+  return '<input type="number" inputmode="decimal" class="inp" placeholder="'+ph+'" style="border:1px solid '+(clr||'#30363D')+';" value="'+esc(val||'')+'" oninput="iL(\''+id+'\',\''+f+'\',this.value)">';
+}
+function colH(){
+  return '<div class="ch"><span style="flex:1">SET</span><span style="width:54px;text-align:center">TARGET</span><span style="width:54px;text-align:center">REPS</span><span style="width:54px;text-align:center">ACT WT</span><span style="width:54px;text-align:center">ACT REPS</span></div>';
+}
+
+function iL(id,f,val){
+  var k=lk();
+  if(!ST.logs[id])ST.logs[id]={};
+  if(!ST.logs[id][k])ST.logs[id][k]={};
+  ST.logs[id][k][f]=val;
+  if(f==='amrap'&&val){if(!ST.amraps[id])ST.amraps[id]={};ST.amraps[id][k]=+val;}
+  save();
+  if(f==='amrap'){
+    var el=document.getElementById('bo-'+id);if(el)el.textContent=+val>2?(+val-2)+' reps':'AMRAP-2';
+    var e=document.getElementById('e1-'+id);
+    if(e){var tm=getTM(id);var wk=AMRAP_WK[ST.week-1];var tw=cWt(tm,wk.pcts[2]);var est=brz(tw,+val);e.textContent=est?'approx '+est+' lbs est. 1RM':'';}
+  }
+  if(f==='db_wt'){var ks=document.getElementById('ks');if(ks&&val){var lo=r5(+val*1.10);var hi=r5(+val*1.15);ks.textContent='Suggested: '+lo+'-'+hi+' lbs';}}
+}
+function iTM(id,cy,val){if(!ST.tms[id])ST.tms[id]={};ST.tms[id][cy]=val?+val:0;save();}
+function iNum(f,val){ST[f]=val?+val:0;save();var ss=document.getElementById('ss');if(ss)ss.innerHTML=sprintStatus();}
+function setTab(t){ST.tab=t;save();render();}
+function setWeek(w){ST.week=+w;save();render();}
+function setPhase(p){ST.phase=+p;save();render();}
+function tog(id){var el=document.getElementById(id);if(el)el.style.display=el.style.display==='none'?'block':'none';}
+function saveAmrap(id,k,val){if(!ST.amraps[id])ST.amraps[id]={};ST.amraps[id][k]=val?+val:0;save();}
+
+function advCycle(){
+  if(!confirm('Advance Cycle '+ST.cycle+' to '+(ST.cycle+1)+'? TMs +5 upper / +10 lower. Logs cleared.'))return;
+  var nc=ST.cycle+1;
+  LIFT_IDS.forEach(function(id){var tm=getTM(id);if(tm){if(!ST.tms[id])ST.tms[id]={};ST.tms[id][nc]=tm+LIFTS[id].inc;}});
+  LIFT_IDS.forEach(function(id){ST.logs[id]={};});
+  ST.cycle=nc;ST.week=1;save();render();
+}
+function doExport(){
+  document.getElementById('exp-box').style.display='block';
+  document.getElementById('imp-box').style.display='none';
+  document.getElementById('exp-data').value=JSON.stringify(ST,null,2);
+}
+function doCopy(){
+  var el=document.getElementById('exp-data');el.select();
+  try{document.execCommand('copy');alert('Copied!');}catch(e){alert('Select all text and copy manually');}
+}
+function doImport(){
+  document.getElementById('imp-box').style.display='block';
+  document.getElementById('exp-box').style.display='none';
+}
+function doLoad(){
+  try{
+    var d=JSON.parse(document.getElementById('imp-data').value);
+    ST.tab=d.tab||'d1';ST.phase=d.phase||1;ST.cycle=d.cycle||1;ST.week=d.week||1;
+    ST.tms=d.tms||{};ST.logs=d.logs||{};ST.amraps=d.amraps||{};
+    ST.ach_weeks=d.ach_weeks||0;ST.cur_weight=d.cur_weight||219;
+    save();render();
+  }catch(e){alert('Import failed - check data and try again');}
+}
+
+function proSets(id,withFSL){
+  var tm=getTM(id);var wk=PRO_WK[ST.week-1];var h='';
+  var names=['Set 1','Set 2','Top Set'];
+  for(var si=0;si<3;si++){
+    var pct=wk.pcts[si];var tWt=cWt(tm,pct);var fld='s'+(si+1);
+    h+='<div class="sr" style="border-bottom:1px solid #30363D">';
+    h+='<div style="flex:1"><div style="font-size:13px">'+names[si]+'</div><div style="font-size:11px;color:#484F58">'+Math.round(pct*100)+'%</div></div>';
+    h+='<span style="width:54px;text-align:center;font-size:17px;font-weight:bold;color:'+LIFTS[id].clr+'">'+(tWt||'-')+'</span>';
+    h+='<span style="width:54px;text-align:center;font-size:12px;color:#8B949E">x5</span>';
+    h+=inp(id,fld+'wt','lbs','',gL(id,fld+'wt'));
+    h+=inp(id,fld+'reps','5','',gL(id,fld+'reps'));
+    h+='</div>';
+  }
+  if(withFSL&&ST.week!==4&&wk.fslPct){
+    var fslWt=cWt(tm,wk.fslPct);var maxSets=FSL_SETS[ST.phase]||3;
+    h+='<div style="margin-top:8px">';
+    h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 6px;background:#0D2818;border-radius:6px 6px 0 0">';
+    h+='<div style="font-size:11px;color:#4CAF50;font-weight:bold">FSL - '+Math.round(wk.fslPct*100)+'% x 5</div>';
+    h+='<div style="font-size:10px;color:#484F58">'+maxSets+' sets '+(ST.phase===1?'(Phase 1 cap)':'(Phase 2 - up to 5)')+'</div></div>';
+    for(var fi=1;fi<=5;fi++){
+      var locked=fi>maxSets;
+      h+='<div class="sr" style="background:'+(locked?'#111':'#0D2818')+';'+(fi>1?'border-top:1px solid #0A1F0A;':'')+'">';
+      h+='<div style="flex:1"><div style="font-size:13px;color:'+(locked?'#30363D':'#4CAF50')+'">FSL '+fi;
+      if(locked&&ST.phase===1)h+=' <span style="font-size:10px;color:#30363D">unlocks Phase 2</span>';
+      else if(!locked&&fi>=4)h+=' <span style="font-size:10px;color:#484F58">add when set '+(fi-1)+' feels 70% effort</span>';
+      h+='</div></div>';
+      if(locked){
+        h+='<span style="width:54px;text-align:center;color:#30363D">'+fslWt+'</span><span style="width:54px;text-align:center;color:#30363D;font-size:11px">locked</span><span style="width:54px"></span><span style="width:54px"></span>';
+      }else{
+        h+='<span style="width:54px;text-align:center;font-size:17px;font-weight:bold;color:#4CAF50">'+fslWt+'</span>';
+        h+='<span style="width:54px;text-align:center;font-size:12px;color:#8B949E">x5</span>';
+        h+=inp(id,'f'+fi+'wt','lbs','#4CAF50',gL(id,'f'+fi+'wt'));
+        h+=inp(id,'f'+fi+'reps','reps','#4CAF50',gL(id,'f'+fi+'reps'));
+      }
+      h+='</div>';
+    }
+    h+='<div style="font-size:10px;color:#484F58;padding:4px 6px;font-style:italic">'+FSL_GUIDE[ST.phase]+'</div></div>';
+  }
+  return h;
+}
+
+function amrapSets(id){
+  var tm=getTM(id);var wk=AMRAP_WK[ST.week-1];var h='';
+  var names=['Set 1','Set 2','AMRAP'];
+  for(var si=0;si<3;si++){
+    var pct=wk.pcts[si];var rep=wk.reps[si];
+    var isA=rep==='AMRAP'&&ST.week!==4;var tWt=cWt(tm,pct);var fld='s'+(si+1);
+    h+='<div class="sr" style="'+(isA?'background:#3D1A1A;border-radius:6px;margin-bottom:3px;':'border-bottom:1px solid #30363D;')+'">';
+    h+='<div style="flex:1"><div style="font-size:13px;font-weight:'+(isA?'bold':'normal')+';color:'+(isA?'#F44336':'#E6EDF3')+'">'+names[si]+'</div>';
+    h+='<div style="font-size:11px;color:#484F58">'+Math.round(pct*100)+'%</div></div>';
+    h+='<span style="width:54px;text-align:center;font-size:17px;font-weight:bold;color:'+(isA?'#F44336':LIFTS[id].clr)+'">'+(tWt||'-')+'</span>';
+    h+='<span style="width:54px;text-align:center;font-size:12px;color:'+(isA?'#F44336':'#8B949E')+';font-weight:'+(isA?'bold':'normal')+'">'+rep+'</span>';
+    h+=inp(id,fld+'wt','lbs',isA?'#F44336':'',gL(id,fld+'wt'));
+    h+=inp(id,isA?'amrap':fld+'reps',isA?'reps':rep,isA?'#F44336':'',isA?gL(id,'amrap'):gL(id,fld+'reps'));
+    h+='</div>';
+  }
+  if(ST.week!==4){
+    var aR=+gL(id,'amrap')||0;var topWt=cWt(tm,wk.pcts[2]);var est=aR?brz(topWt,aR):0;
+    h+='<div id="e1-'+id+'" style="font-size:12px;color:#FF9800;padding:4px 6px">'+(est?'approx '+est+' lbs est. 1RM':'')+'</div>';
+    for(var bo=1;bo<=2;bo++){
+      var bWt=cWt(tm,wk.pcts[2]);var aRv=+gL(id,'amrap')||0;var tR=aRv>2?(aRv-2)+' reps':'AMRAP-2';
+      h+='<div class="sr" style="background:#1C2128;border-radius:6px;margin-bottom:3px">';
+      h+='<div style="flex:1"><div style="font-size:13px;color:#64B5F6">Backoff '+bo+'</div>';
+      h+='<div id="'+(bo===1?'bo-'+id:'')+'" style="font-size:11px;color:#484F58">Same wt - '+tR+'</div></div>';
+      h+='<span style="width:54px;text-align:center;font-size:17px;font-weight:bold;color:#64B5F6">'+(bWt||'-')+'</span>';
+      h+='<span style="width:54px;text-align:center;font-size:12px;color:#64B5F6">'+tR+'</span>';
+      h+=inp(id,'bo'+bo+'wt','lbs','#64B5F6',gL(id,'bo'+bo+'wt'));
+      h+=inp(id,'bo'+bo+'reps','reps','#64B5F6',gL(id,'bo'+bo+'reps'));
+      h+='</div>';
+    }
+  }
+  return h;
+}
+
+function dbKroc(){
+  var dbWt=parseFloat(gL('row','db_wt'))||null;
+  var lo=dbWt?r5(dbWt*1.10):null;var hi=dbWt?r5(dbWt*1.15):null;
+  var h='<div style="margin-top:10px;padding:10px;background:#1C2128;border-radius:8px;border:1px solid #30363D">';
+  h+='<div style="font-size:12px;font-weight:bold;color:#64B5F6;margin-bottom:4px">DB ROWS + KROC - Backoff Volume</div>';
+  h+='<div style="font-size:11px;color:#484F58;margin-bottom:8px">Double progression 10-15 - hit 15 then add weight then reset to 10</div>';
+  for(var s=1;s<=2;s++){
+    h+='<div class="sr" style="margin-bottom:6px"><span style="flex:1;font-size:13px;color:#64B5F6">Strict DB Row '+s+'</span>';
+    h+=inp('row','db_wt','lbs','#64B5F6',gL('row','db_wt'));
+    h+=inp('row','db'+s+'reps','reps','#64B5F6',gL('row','db'+s+'reps'));
+    h+='</div>';
+  }
+  h+='<div class="sr" style="background:#2A1F0A;border-radius:6px;padding:8px">';
+  h+='<div style="flex:1"><div style="font-size:13px;color:#FF9800;font-weight:bold">Kroc Row x AMRAP</div>';
+  h+='<div id="ks" style="font-size:11px;color:#FF9800">'+(lo?'Suggested: '+lo+'-'+hi+' lbs':'log DB weight for suggestion')+'</div></div>';
+  h+=inp('row','kroc_wt','lbs','#FF9800',gL('row','kroc_wt'));
+  h+=inp('row','kroc_reps','reps','#FF9800',gL('row','kroc_reps'));
+  h+='</div></div>';
+  return h;
+}
+
+function lbPractice(){
+  var h='<div class="card" style="border-left:3px solid #2E7D32;margin-bottom:14px">';
+  h+='<div style="font-size:14px;font-weight:bold;color:#4CAF50;margin-bottom:4px">Low Bar Practice Block</div>';
+  h+='<div style="font-size:11px;color:#8B949E;margin-bottom:6px">4-5 sets x 3 reps - 60-65% old max (approx 260-285 lbs) - Position only</div>';
+  h+='<div style="font-size:12px;color:#FF9800;padding:6px;background:#2A1F0A;border-radius:6px;margin-bottom:8px">Shoulder packing, lat engagement, bar path. Weight is irrelevant here. Never chase it.</div>';
+  h+='<div class="ch"><span style="flex:1">SET</span><span style="width:54px;text-align:center">ACT WT</span><span style="width:54px;text-align:center">ACT REPS</span></div>';
+  for(var s=1;s<=5;s++){
+    h+='<div class="sr" style="border-bottom:1px solid #30363D"><div style="flex:1;font-size:13px;color:#4CAF50">Set '+s+(s===5?' (optional)':'')+'</div>';
+    h+='<span style="width:54px"></span><span style="width:54px"></span>';
+    h+=inp('squat','lb'+s+'wt','lbs','#4CAF50',gL('squat','lb'+s+'wt'));
+    h+=inp('squat','lb'+s+'reps','reps','#4CAF50',gL('squat','lb'+s+'reps'));
+    h+='</div>';
+  }
+  h+='</div>';return h;
+}
+
+function beltSquat(){
+  var h='<div class="card" style="border-left:3px solid #2E7D32;margin-bottom:14px">';
+  h+='<div style="font-size:14px;font-weight:bold;color:#2E7D32;margin-bottom:4px">Belt Squat</div>';
+  h+='<div style="font-size:11px;color:#8B949E;margin-bottom:8px">3-4 x 10-15 - Double progression - No axial loading</div>';
+  h+=colH();
+  for(var s=1;s<=4;s++){
+    h+='<div class="sr" style="border-bottom:1px solid #30363D"><div style="flex:1"><div style="font-size:13px;color:#2E7D32">Set '+s+(s===4?' (optional)':'')+'</div></div>';
+    h+='<span style="width:54px;text-align:center;color:#484F58">-</span><span style="width:54px;text-align:center;font-size:12px;color:#8B949E">10-15</span>';
+    h+=inp('squat','bs'+s+'wt','lbs','#2E7D32',gL('squat','bs'+s+'wt'));
+    h+=inp('squat','bs'+s+'reps','reps','#2E7D32',gL('squat','bs'+s+'reps'));
+    h+='</div>';
+  }
+  h+='</div>';return h;
+}
+
+function liftBlock(id,scheme,labelOvr){
+  var l=LIFTS[id];var tm=getTM(id);var label=labelOvr||l.name;
+  var schLbl={'pro_nofsl':'5s PRO - DB rows + Kroc as backoff','pro_fsl':'5s PRO + FSL - all sets x5','531_amrap':'5/3/1 AMRAP + 2 backoffs'}[scheme]||scheme;
+  var h='<div class="card" style="border-left:3px solid '+l.clr+';margin-bottom:14px">';
+  h+='<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">';
+  h+='<div><div style="font-size:15px;font-weight:bold">'+label+'</div><div style="font-size:11px;color:#8B949E;margin-top:2px">'+schLbl+'</div></div>';
+  if(tm){h+='<div style="text-align:right"><div style="font-size:22px;font-weight:bold;color:'+l.clr+'">'+tm+'</div><div style="font-size:10px;color:#8B949E">TM lbs</div></div>';}
+  else{h+='<div style="font-size:11px;color:#484F58">set TM in Tracker</div>';}
+  h+='</div>'+colH();
+  if(scheme==='pro_nofsl'){h+=proSets(id,false);if(id==='row')h+=dbKroc();}
+  else if(scheme==='pro_fsl'){h+=proSets(id,true);}
+  else if(scheme==='531_amrap'){h+=amrapSets(id);}
+  h+='</div>';return h;
+}
+
+function accBlock(day){
+  var ph=Math.min(ST.phase,2);var a=ACC[ph]&&ACC[ph]['d'+day];if(!a)return'';var h='';
+  if(a.power&&a.power.length>0){
+    h+='<div class="card"><button class="cb" onclick="tog(\'pwr-'+day+'\')" style="font-size:13px;font-weight:bold;color:#FF9800"><span>'+(a.pwrPos==='first'?'POWER - Before Main Lifts':'POWER - After Accessories')+'</span><span>v</span></button>';
+    h+='<div id="pwr-'+day+'" style="margin-top:10px">';
+    a.power.forEach(function(e){h+='<div class="ar"><div><div style="font-size:13px;font-weight:bold">'+e.n+'</div><div style="font-size:11px;color:#8B949E">'+e.d+'</div></div><span class="tag" style="background:#FF980022;color:#FF9800">'+e.s+'</span></div>';});
+    h+='</div></div>';
+  }
+  if(a.acc&&a.acc.length>0){
+    h+='<div class="card"><button class="cb" onclick="tog(\'acc-'+day+'\')" style="font-size:13px;font-weight:bold;color:#FCC100"><span>ACCESSORIES + FINISHER</span><span>v</span></button>';
+    h+='<div id="acc-'+day+'" style="margin-top:10px">';
+    a.acc.forEach(function(e){h+='<div class="ar"><div><div style="font-size:13px;font-weight:bold">'+e.n+'</div><div style="font-size:11px;color:#8B949E">'+e.d+'</div></div><span class="tag" style="background:#FCC10022;color:#FCC100">'+e.s+'</span></div>';});
+    if(a.fin)h+='<div style="margin-top:10px;padding:8px 12px;background:#2A1F0A;border-radius:6px;font-size:13px;color:#FF9800">Finisher: '+a.fin+'</div>';
+    h+='</div></div>';
+  }
+  h+='<div class="card"><button class="cb" onclick="tog(\'wu-'+day+'\')" style="font-size:13px;color:#8B949E;font-weight:bold"><span>WARMUP</span><span>v</span></button><div id="wu-'+day+'" style="display:none">';
+  a.wu.forEach(function(x){h+='<div class="wi">- '+x+'</div>';});
+  h+='</div></div>';
+  h+='<div class="card"><button class="cb" onclick="tog(\'cd-'+day+'\')" style="font-size:13px;color:#8B949E;font-weight:bold"><span>COOLDOWN</span><span>v</span></button><div id="cd-'+day+'" style="display:none">';
+  a.cd.forEach(function(x){h+='<div class="wi">- '+x+'</div>';});
+  h+='</div></div>';
+  return h;
+}
+
+var DAY_LABELS={1:'UPPER - Row + OHP',2:'LOWER - Squat',3:'UPPER - Bench + Pull Down',4:'LOWER - Deadlift'};
+
+function buildDay(day){
+  var ph=ST.phase;
+  var h='<div style="font-size:12px;color:#8B949E;margin-bottom:4px;font-weight:bold">DAY '+day+' - '+DAY_LABELS[day]+'</div>';
+  h+='<div style="font-size:11px;color:#484F58;margin-bottom:12px;padding:5px 8px;background:#161B22;border-radius:6px">'+(ph===1?'Power first then main lifts then accessories':'Main lifts first then accessories then power at end')+'</div>';
+  if(ph===1){
+    if(day===1){h+=liftBlock('row','pro_nofsl');h+=liftBlock('ohp','pro_fsl');}
+    else if(day===2){h+=liftBlock('squat','pro_fsl','SSB Squat');}
+    else if(day===3){
+      h+='<div style="font-size:11px;color:#FF9800;padding:5px 8px;background:#2A1F0A;border-radius:6px;margin-bottom:10px">Cubital tunnel note: avoid deep elbow flexion under load. If medial elbow pain or ring/pinky tingling occurs, widen grip or reduce range. Phase 3 arm work uses close grip bench and pushdowns - not skull crushers - for this reason.</div>';
+      h+=liftBlock('bench','pro_fsl');h+=liftBlock('pd','531_amrap');
+    }
+    else if(day===4){h+=liftBlock('dl','pro_fsl');}
+  }else if(ph===2){
+    if(day===1){h+=liftBlock('row','pro_nofsl');h+=liftBlock('ohp','531_amrap');}
+    else if(day===2){h+=liftBlock('squat','531_amrap','SSB Squat (main)');h+=lbPractice();h+=beltSquat();}
+    else if(day===3){
+      h+='<div style="font-size:11px;color:#FF9800;padding:5px 8px;background:#2A1F0A;border-radius:6px;margin-bottom:10px">Cubital tunnel note: avoid deep elbow flexion under load. If medial elbow pain or ring/pinky tingling occurs, widen grip or reduce range.</div>';
+      h+=liftBlock('bench','pro_fsl');h+=liftBlock('pd','531_amrap');
+    }
+    else if(day===4){h+=liftBlock('dl','pro_fsl');}
+  }else{
+    h+='<div class="card" style="text-align:center;padding:30px;border-color:#C6282844"><div style="font-size:15px;color:#FCC100;font-weight:bold;margin-bottom:8px">Phase 3 Coming</div><div style="font-size:13px;color:#8B949E;line-height:1.6">Push Press, Bench AMRAP, Deadlift AMRAP, arm work and sprint day will be added when you approach Phase 3.</div></div>';
+  }
+  h+=accBlock(day);return h;
+}
+
+function sprintStatus(){
+  var wOK=ST.ach_weeks>=12;var wWt=ST.cur_weight<200;
+  if(wOK&&wWt)return'<div style="font-size:14px;font-weight:bold;color:#4CAF50;margin-bottom:4px">SPRINT CLEARED</div><div style="font-size:12px;color:#8B949E">Introduce acceleration only. 10-20m, full recovery. 3-4 weeks before any sub-max speed.</div>';
+  var msg='';
+  if(!wOK&&!wWt)msg='Need '+(12-ST.ach_weeks)+' more Alfredson weeks + sub-200 lbs (currently '+ST.cur_weight+' lbs)';
+  else if(!wOK)msg='Need '+(12-ST.ach_weeks)+' more Alfredson weeks (weight OK)';
+  else msg='Need sub-200 lbs - currently '+ST.cur_weight+' lbs (Alfredson complete)';
+  return'<div style="font-size:13px;font-weight:bold;color:#F44336;margin-bottom:4px">NOT YET CLEARED</div><div style="font-size:12px;color:#8B949E">'+msg+'</div>';
+}
+
+function buildSprint(){
+  var cleared=sprintOK();
+  var h='<div style="font-size:12px;color:#8B949E;margin-bottom:12px;font-weight:bold">SPRINT DAY - Dedicated Speed Session</div>';
+  h+='<div class="card" style="border-left:3px solid '+(cleared?'#4CAF50':'#F44336')+'">';
+  h+='<div style="font-size:12px;color:#8B949E;margin-bottom:8px">SPRINT READINESS - BOTH CRITERIA REQUIRED</div>';
+  h+='<div id="ss">'+sprintStatus()+'</div>';
+  h+='<div style="margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:12px">';
+  h+='<div><div style="font-size:11px;color:#8B949E;margin-bottom:4px">Alfredson Weeks</div>';
+  h+='<input type="number" inputmode="decimal" class="inp" style="width:70px;border-color:'+(ST.ach_weeks>=12?'#4CAF50':'#F44336')+';" value="'+ST.ach_weeks+'" oninput="iNum(\'ach_weeks\',this.value)" placeholder="0">';
+  h+='<span style="font-size:11px;color:#484F58;margin-left:5px">/ 12</span></div>';
+  h+='<div><div style="font-size:11px;color:#8B949E;margin-bottom:4px">Current Weight (lbs)</div>';
+  h+='<input type="number" inputmode="decimal" class="inp" style="width:70px;border-color:'+(ST.cur_weight<200?'#4CAF50':'#F44336')+';" value="'+ST.cur_weight+'" oninput="iNum(\'cur_weight\',this.value)" placeholder="219">';
+  h+='<span style="font-size:11px;color:#484F58;margin-left:5px">under 200</span></div></div></div>';
+  var op=cleared?'1':'0.3';var pt=cleared?'auto':'none';
+  h+='<div style="opacity:'+op+';pointer-events:'+pt+'">';
+  h+='<div class="card"><div style="font-size:13px;font-weight:bold;color:#FF9800;margin-bottom:8px">WARMUP</div>';
+  ['Leg swings x10ea','High knees 2x20m','A-skips 2x20m','B-skips 2x20m','Build-up strides x3 (60 to 70 to 80% effort)'].forEach(function(x){h+='<div class="wi">- '+x+'</div>';});
+  h+='</div>';
+  h+='<div class="card"><div style="font-size:13px;font-weight:bold;color:#F44336;margin-bottom:8px">MAIN WORK</div>';
+  h+='<div class="ar"><div><div style="font-size:13px;font-weight:bold">Acceleration Sprints</div><div style="font-size:11px;color:#8B949E">First 3-4 weeks only. Drive phase focus, not top speed. Full recovery 2-3 min between.</div></div><span class="tag" style="background:#F4433622;color:#F44336">6-8 x 10-20m</span></div>';
+  h+='<div class="ar" style="border-bottom:none"><div><div style="font-size:13px;font-weight:bold">Sub-Max Speed</div><div style="font-size:11px;color:#8B949E">Only after acceleration consistently clean. 85-90% effort, full recovery.</div></div><span class="tag" style="background:#F4433622;color:#F44336">4-6 x 30-40m</span></div></div>';
+  h+='<div class="card"><div style="font-size:13px;font-weight:bold;color:#FF9800;margin-bottom:8px">POWER FINISHER</div>';
+  h+='<div class="ar" style="border-bottom:none"><div><div style="font-size:13px;font-weight:bold">Broad Jump</div><div style="font-size:11px;color:#8B949E">Full reset between reps</div></div><span class="tag" style="background:#FF980022;color:#FF9800">3x3</span></div></div>';
+  h+='<div class="card"><div style="font-size:13px;color:#8B949E;font-weight:bold;margin-bottom:8px">RULES</div>';
+  ['Full recovery between every sprint - speed work in fatigue is conditioning not development',
+   'Stop if speed drops between reps - quality over quantity always',
+   'Acceleration only for first 3-4 weeks after clearing',
+   'Top-speed work Phase 3 or later only when Achilles feels fully robust',
+   'Stop at first sign of hamstring tightness or pull sensation'
+  ].forEach(function(r){h+='<div style="font-size:12px;color:#8B949E;padding:4px 0;border-bottom:1px solid #30363D">- '+r+'</div>';});
+  h+='</div>';
+  h+='<div class="card"><div style="font-size:13px;color:#8B949E;font-weight:bold;margin-bottom:8px">COOLDOWN</div>';
+  ['Walking 5 min','Hip flexor stretch 60s ea','Hamstring stretch 60s ea','Pigeon pose 90s ea'].forEach(function(x){h+='<div class="wi">- '+x+'</div>';});
+  h+='</div></div>';
+  if(!cleared)h+='<div class="card" style="border-color:#F4433644;text-align:center;padding:14px"><div style="font-size:12px;color:#F44336;font-weight:bold">Unlocks when both criteria are met</div><div style="font-size:11px;color:#484F58;margin-top:4px">Start Alfredson today. Update the counter above each week.</div></div>';
+  return h;
+}
+
+function dlCard(id,title,clr,time,priority,items){
+  var pr=priority==='must'?'Non-negotiable':priority==='high'?'High priority':'Do when time allows';
+  var prClr=priority==='must'?'#F44336':priority==='high'?'#FF9800':'#4CAF50';
+  var h='<div class="card" style="border-left:3px solid '+clr+';margin-bottom:12px">';
+  h+='<button class="cb" onclick="tog(\'dl-'+id+'\')"><div>';
+  h+='<div style="font-size:14px;font-weight:bold;color:'+clr+'">'+title+'</div>';
+  h+='<div style="font-size:11px;color:#8B949E;margin-top:2px">'+time+'   <span style="color:'+prClr+'">'+pr+'</span></div>';
+  h+='</div><span style="color:#484F58;font-size:16px">v</span></button>';
+  h+='<div id="dl-'+id+'" style="display:none;margin-top:10px">';
+  items.forEach(function(item){
+    if(typeof item==='string'){
+      h+='<div style="font-size:12px;color:#8B949E;padding:5px 0;border-bottom:1px solid #30363D">- '+item+'</div>';
+    }else{
+      h+='<div style="padding:6px 0;border-bottom:1px solid #30363D">';
+      h+='<div style="font-size:13px;font-weight:bold;color:#E6EDF3;margin-bottom:2px">'+item.n+'</div>';
+      h+='<div style="font-size:11px;color:#8B949E">'+item.d+'</div></div>';
+    }
+  });
+  h+='</div></div>';
+  return h;
+}
+
+function buildDaily(){
+  var h='<div style="font-size:12px;color:#8B949E;margin-bottom:4px;font-weight:bold">DAILY HOME PROTOCOL</div>';
+  h+='<div style="font-size:11px;color:#484F58;margin-bottom:12px">Full protocol approx 28-32 min - Standard (grip + Alfredson) 12 min - Minimum (Alfredson only) 5 min</div>';
+  h+='<div class="card" style="margin-bottom:12px">';
+  h+='<div style="font-size:12px;color:#8B949E;margin-bottom:8px;font-weight:bold">DAILY TIERS</div>';
+  h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">';
+  [{t:'5 min',l:'Minimum',d:'Alfredson only',c:'#F44336'},
+   {t:'12 min',l:'Standard',d:'Alfredson + Grip',c:'#FF9800'},
+   {t:'30 min',l:'Full',d:'Everything',c:'#4CAF50'}
+  ].forEach(function(x){
+    h+='<div style="background:#21262D;border-radius:8px;padding:10px;text-align:center">';
+    h+='<div style="font-size:16px;font-weight:bold;color:'+x.c+'">'+x.t+'</div>';
+    h+='<div style="font-size:11px;font-weight:bold;color:#E6EDF3;margin:2px 0">'+x.l+'</div>';
+    h+='<div style="font-size:10px;color:#8B949E">'+x.d+'</div></div>';
+  });
+  h+='</div></div>';
+
+  h+=dlCard('alf','Alfredson Achilles Protocol','#F44336','5 min','must',[
+    {n:'Setup',d:'Stand on a step with heel hanging off the edge. Enough clearance to lower heel below step level. Stairs at home work fine.'},
+    {n:'The movement',d:'Rise on BOTH feet to the top. Transfer to RIGHT foot only. Lower slowly over 3 seconds until heel is below step level. Use both feet to return. That is one rep.'},
+    {n:'Straight knee - Gastrocnemius',d:'3 sets x 15 reps, knee fully straight. Primary sprint muscle of the calf. RIGHT side full protocol, LEFT side 2x15 maintenance.'},
+    {n:'Bent knee - Soleus',d:'3 sets x 15 reps, knee bent approx 30 degrees. Critical for Achilles load absorption. Both sides.'},
+    {n:'Discomfort',d:'Mild tendon ache during sets is acceptable and expected. Sharp pain or significant worsening after - back off.'},
+    {n:'Progression',d:'Weeks 1-4: bodyweight. Weeks 5-8: add load when bodyweight feels easy (DB in right hand or weighted backpack). Weeks 9-12: meaningful load all sets. Progressive overload like any other lift.'},
+    {n:'Maintenance',d:'Once sprint work starts, drop to 3x per week but never stop entirely while sprinting.'}
+  ]);
+
+  h+=dlCard('grip','Grip Protocol','#FCC100','10-12 min','high',[
+    {n:'1. Finger extensions - START HERE',d:'3 sets x 20 reps both hands. Before any crush work. Non-negotiable first step.'},
+    {n:'2. Wrist mobility',d:'Circles x10 each direction. Prayer stretch 30s. Reverse prayer 30s.'},
+    {n:'3. CoC Grippers',d:'Sport (80 lbs): 2x10 warm-up both hands. Trainer (100 lbs): 3x5 working sets, full close every rep. Right hand: stay below pain threshold. Progress: add 4th set when 3x5 feels clean, then Trainer negatives to bridge to CoC #1.'},
+    {n:'4. Bison Exerciser',d:'Two-handed exercise. Hold with both hands and rotate through the ball-in-socket joints. Adjust resistance as needed. 60-90s, smooth controlled rotation. Most therapeutic tool for right wrist. Daily use appropriate.'},
+    {n:'5. Wrist roller',d:'Arms at shoulder height. 2 cycles palms down (extensors), 2 cycles palms up (flexors). Both equally important.'},
+    {n:'6. Rice bucket',d:'Figure eights, pronation/supination, wrist circles. Can do while watching TV.'},
+    {n:'7. Finger extensions in rice bucket - FINISH HERE',d:'1 set x 20 reps each hand in the rice bucket. Same antagonist flush as the band but with added resistance. Flushes flexors and bookends the session.'}
+  ]);
+
+  h+=dlCard('elbow','Elbow Health - Cubital Tunnel','#FF9800','4-5 min','high',[
+    {n:'Ulnar nerve floss x10-15 reps each side',d:'Arm out to side, elbow straight, wrist bent back, tilt head away. Then bend elbow bringing hand toward ear while tilting head toward that shoulder. Slow controlled oscillation. Most important daily intervention for medial elbow health and hand numbness.'},
+    {n:'Supination/pronation with hammer x15 each direction',d:'Hold hammer at end of handle, forearm resting on thigh or bench. Slowly rotate palm up then palm down through full range. 2 sets each direction. General elbow joint health.'},
+    {n:'Sleeping note',d:'Wrap a towel around the elbow at night to prevent full flexion while sleeping. Ulnar nerve compressed for hours in a bent position - this alone can significantly reduce numbness symptoms.'}
+  ]);
+
+  h+=dlCard('neck','Iron Neck Protocol','#1565C0','3-5 min','high',[
+    {n:'Rotation',d:'Slow controlled rotation each direction. Full range. 10-15 reps each way.'},
+    {n:'Flexion and extension',d:'Forward and backward through full comfortable range. 10-15 reps. Build tolerance before adding resistance.'},
+    {n:'Lateral flexion',d:'Side to side, ear toward shoulder. 10-15 reps each side.'},
+    {n:'Timing',d:'Can be done any time - watching TV, before bed, morning. Does not need to be adjacent to gym sessions. Replaces all neck isometric work.'}
+  ]);
+
+  h+=dlCard('foot','Foot Health','#4CAF50','5 min','high',[
+    {n:'Toe spreads 3x10 each foot',d:'Spread toes as wide as possible, hold 5 seconds. Strengthens intrinsic foot muscles. Do barefoot. Most people can barely do this initially - the range will improve over weeks.'},
+    {n:'Short foot exercise 2x10 each side',d:'Without curling toes, try to shorten the foot by pulling the ball of the foot toward the heel, creating an arch. Hold 5-10 seconds. Direct arch strengthening - best evidence for plantar fasciitis prevention.'},
+    {n:'Single leg balance 30-60s each side',d:'Eyes open first, progress to eyes closed when stable. Proprioception and ankle stability for sprint work. Barefoot on a firm surface. Progress to single leg balance on a folded towel when eyes-closed is easy.'},
+    {n:'Plantar fascia stretch 30s each side',d:'Foot crossed over opposite knee, pull toes back toward shin, hold. Best done before first steps in the morning. Also useful post-sprint day.'}
+  ]);
+
+  h+=dlCard('tricep','Overhead Tricep Stretch','#2E7D32','2 min','high',[
+    {n:'Why it matters',d:'The long head of the tricep crosses the shoulder joint. Keeping it extensible reduces tension on the tricep tendon at the medial elbow - directly relevant to cubital tunnel symptoms.'},
+    {n:'Execution',d:'Raise one arm overhead, bend the elbow so the hand drops behind your head. Use the other hand to gently push the elbow back and down. Hold 60 seconds each side. Do post-session while tissue is warm and as part of this daily protocol.'}
+  ]);
+
+  var wOK=ST.ach_weeks>=12;var wWt=ST.cur_weight<200;
+  h+='<div class="card" style="background:#2A1F0A;border:1px solid #FF980033">';
+  h+='<div style="font-size:12px;font-weight:bold;color:#FF9800;margin-bottom:6px">SPRINT COUNTDOWN</div>';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">';
+  h+='<div style="font-size:13px;color:'+(wOK&&wWt?'#4CAF50':'#F44336')+';font-weight:bold">'+(wOK&&wWt?'CLEARED':'NOT YET CLEARED')+'</div>';
+  h+='<div style="font-size:11px;color:#8B949E;text-align:right">Alfredson: '+ST.ach_weeks+'/12 wks<br>Weight: '+ST.cur_weight+' lbs / under 200</div></div>';
+  var pct=Math.min(100,Math.round((ST.ach_weeks/12)*100));
+  h+='<div style="background:#30363D;border-radius:4px;height:6px;margin-bottom:4px">';
+  h+='<div style="background:'+(wOK?'#4CAF50':'#F44336')+';border-radius:4px;height:6px;width:'+pct+'%"></div></div>';
+  if(!wOK)h+='<div style="font-size:11px;color:#484F58">'+(12-ST.ach_weeks)+' Alfredson weeks remaining before sprint criteria met (weight also must be under 200)</div>';
+  else if(!wWt)h+='<div style="font-size:11px;color:#484F58">Alfredson complete - need sub-200 lbs to clear sprint</div>';
+  h+='</div>';
+  return h;
+}
+
+function buildOverview(){
+  var ph=ST.phase;var phInfo=PHASES[Math.min(ph,3)-1]||PHASES[0];var h='';
+  h+='<div class="card" style="border-color:'+phInfo.clr+'44">';
+  h+='<div style="font-size:11px;color:#8B949E;margin-bottom:8px;font-weight:bold">CURRENT PHASE - tap to change</div>';
+  h+='<div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">';
+  PHASES.forEach(function(p){
+    var active=ST.phase===p.id;
+    h+='<button class="ph-btn" style="background:'+(active?p.clr:'#21262D')+';color:'+(active?'#fff':'#8B949E')+';border-color:'+(active?p.clr:'#30363D')+'" onclick="setPhase('+p.id+')">'+p.label+'</button>';
+  });
+  h+='</div>';
+  h+='<div style="font-size:13px;font-weight:bold;color:'+phInfo.clr+'">'+phInfo.full+'</div>';
+  h+='<div style="font-size:12px;color:#8B949E;margin-top:2px">'+phInfo.desc+'</div>';
+  h+='<div style="font-size:11px;color:#484F58;margin-top:6px;padding:6px;background:#0D1117;border-radius:6px">Advance when: '+phInfo.criteria+'</div></div>';
+  h+='<div class="card" style="display:flex;justify-content:space-between;align-items:center">';
+  h+='<div><div style="font-size:12px;color:#8B949E">CYCLE</div><div style="font-size:28px;font-weight:bold;color:#FCC100">'+ST.cycle+'</div><div style="font-size:11px;color:#484F58">of 23</div></div>';
+  h+='<div style="text-align:center"><div style="font-size:12px;color:#8B949E">WEEK</div><div style="font-size:28px;font-weight:bold;color:#FCC100">'+ST.week+'</div><div style="font-size:11px;color:#484F58">'+PRO_WK[ST.week-1].label+'</div></div>';
+  h+='<div style="text-align:right"><div style="font-size:12px;color:#8B949E">FSL SETS</div><div style="font-size:28px;font-weight:bold;color:#4CAF50">'+(FSL_SETS[ph]||3)+'</div><div style="font-size:11px;color:#484F58">active</div></div></div>';
+  var cleared=sprintOK();
+  h+='<div class="card" style="border-left:3px solid '+(cleared?'#4CAF50':'#E65100')+'">';
+  h+='<div style="font-size:11px;color:#8B949E;margin-bottom:6px">SPRINT READINESS</div>';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center">';
+  h+='<div style="font-size:13px;font-weight:bold;color:'+(cleared?'#4CAF50':'#E65100')+'">'+(cleared?'Cleared':'Not yet cleared')+'</div>';
+  h+='<div style="font-size:11px;color:#8B949E;text-align:right">Alfredson: '+ST.ach_weeks+'/12 wks<br>Weight: '+ST.cur_weight+' lbs</div></div></div>';
+  h+='<div class="card"><div style="font-size:12px;color:#8B949E;margin-bottom:10px;font-weight:bold">TRAINING MAXES - Cycle '+ST.cycle+'</div>';
+  ['row','ohp','squat','bench','pd','dl'].forEach(function(id){
+    var l=LIFTS[id];var tm=getTM(id);var wk=PRO_WK[ST.week-1];var top=tm?cWt(tm,wk.pcts[2]):0;
+    h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #30363D">';
+    h+='<div><div style="font-size:13px;font-weight:bold">'+l.short+'</div><div style="font-size:11px;color:#8B949E">'+l.type+' +'+l.inc+'/cycle</div></div>';
+    if(tm){h+='<div style="text-align:right"><span style="font-size:20px;font-weight:bold;color:'+l.clr+'">'+tm+'</span><span style="font-size:11px;color:#8B949E;margin-left:3px">lbs</span><br><span style="font-size:11px;color:#484F58">top '+top+'</span></div>';}
+    else{h+='<div style="font-size:12px;color:#484F58">set in Tracker</div>';}
+    h+='</div>';
+  });
+  h+='</div>';
+  if(ST.cycle<23)h+='<button class="btn" style="background:#FCC100;color:#0D1117;width:100%;margin-bottom:12px" onclick="advCycle()">Advance to Cycle '+(ST.cycle+1)+'</button>';
+  h+='<div class="card"><div style="font-size:12px;color:#8B949E;margin-bottom:10px;font-weight:bold">DATA - Backup and Restore</div>';
+  h+='<div style="font-size:11px;color:#484F58;margin-bottom:8px">Export before updating the app file. Paste into Notes to save.</div>';
+  h+='<div style="display:flex;gap:8px;margin-bottom:8px">';
+  h+='<button class="btn" style="background:#21262D;color:#E6EDF3;flex:1" onclick="doExport()">Export</button>';
+  h+='<button class="btn" style="background:#21262D;color:#E6EDF3;flex:1" onclick="doImport()">Import</button></div>';
+  h+='<div id="exp-box" style="display:none"><div style="font-size:11px;color:#8B949E;margin-bottom:4px">Copy all this text:</div>';
+  h+='<textarea id="exp-data" rows="5" readonly></textarea>';
+  h+='<button class="btn" style="background:#2E7D32;color:#fff;width:100%;margin-top:6px;font-size:12px" onclick="doCopy()">Copy to Clipboard</button></div>';
+  h+='<div id="imp-box" style="display:none"><div style="font-size:11px;color:#8B949E;margin-bottom:4px">Paste your exported data:</div>';
+  h+='<textarea id="imp-data" rows="5" placeholder="Paste exported data here"></textarea>';
+  h+='<button class="btn" style="background:#1565C0;color:#fff;width:100%;margin-top:6px;font-size:12px" onclick="doLoad()">Load Data</button></div></div>';
+  return h;
+}
+
+function buildTracker(){
+  var h='<div class="card">';
+  h+='<div style="font-size:13px;font-weight:bold;color:#FCC100;margin-bottom:6px">TRAINING MAX TABLE</div>';
+  h+='<div style="font-size:11px;color:#484F58;margin-bottom:6px">All 7 lifts - All 23 cycles - No restrictions</div>';
+  h+='<div style="font-size:10px;color:#E65100;margin-bottom:10px;padding:5px 8px;background:#FFF3E022;border-radius:5px;font-style:italic">Transitions are yours to decide: OHP to Push Press when Phase 3 starts - SSB to Low Bar when pattern solid - Pull Down to Weighted Pull-ups when 8-10 clean pull-ups achievable</div>';
+  h+='<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:11px;min-width:100%">';
+  h+='<thead><tr><th style="text-align:left;padding:3px 4px;color:#8B949E;min-width:68px;position:sticky;left:0;background:#161B22">Lift</th>';
+  for(var cy=1;cy<=23;cy++){
+    h+='<th style="padding:3px 3px;color:'+(ST.cycle===cy?'#FCC100':'#484F58')+';font-weight:'+(ST.cycle===cy?'bold':'normal')+';min-width:38px;text-align:center">C'+cy+'</th>';
+  }
+  h+='</tr></thead><tbody>';
+  LIFT_IDS.forEach(function(id){
+    var l=LIFTS[id];
+    h+='<tr><td style="padding:5px 4px;font-weight:bold;color:'+l.clr+';border-bottom:1px solid #30363D;white-space:nowrap;position:sticky;left:0;background:#161B22">'+l.short+'</td>';
+    for(var cy=1;cy<=23;cy++){
+      var val=(ST.tms[id]&&ST.tms[id][cy])||'';var isCur=ST.cycle===cy;
+      h+='<td style="padding:2px;text-align:center;border-bottom:1px solid #30363D;background:'+(isCur?'#FCC10011':'transparent')+'">';
+      h+='<input type="number" inputmode="decimal" class="tm-inp" style="border:1px solid '+(isCur?'#FCC100':'#30363D')+'" value="'+esc(val)+'" oninput="iTM(\''+id+'\','+cy+',this.value)"></td>';
+    }
+    h+='</tr>';
+  });
+  h+='</tbody></table></div></div>';
+  var amrapLifts=[
+    {id:'pd',    label:'Pull Down / Wtd Pull-ups',clr:'#1565C0',note:'AMRAP all phases. Leave blank for deload weeks.'},
+    {id:'ohp',   label:'OHP',clr:'#C62828',note:'Enter reps only when OHP runs as 5/3/1 AMRAP (Phase 2+). Leave blank during 5s PRO. Sets Push Press starting TM.'},
+    {id:'pp',    label:'Push Press (off blocks)',clr:'#E65100',note:'Enter reps for cycles where Push Press is your main overhead lift.'},
+    {id:'squat', label:'Squat (SSB to Low Bar)',clr:'#2E7D32',note:'Enter reps when squat runs 5/3/1 AMRAP (Phase 2+). Leave blank during 5s PRO FSL.'},
+    {id:'bench', label:'Competition Bench',clr:'#C62828',note:'Enter reps when bench runs 5/3/1 AMRAP (Phase 3+). Leave blank during 5s PRO FSL.'},
+    {id:'dl',    label:'Deadlift',clr:'#2E7D32',note:'Enter reps when deadlift runs 5/3/1 AMRAP (Phase 3+). Sumo backoffs every 3rd cycle from Phase 3.'}
+  ];
+  amrapLifts.forEach(function(al){h+=buildPRSection(al.id,al.label,al.clr,al.note);});
+  return h;
+}
+
+function buildPRSection(id,label,clr,note){
+  var h='<div class="card" style="border-left:3px solid '+clr+'">';
+  h+='<div style="font-size:12px;font-weight:bold;color:'+clr+';margin-bottom:4px">'+label+'</div>';
+  h+='<div style="font-size:10px;color:#E65100;margin-bottom:8px;font-style:italic">'+note+'</div>';
+  h+='<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:10px;min-width:100%">';
+  h+='<thead><tr style="color:#484F58">';
+  ['Cy','TM','W1 R','W1 1RM','W2 R','W2 1RM','W3 R','W3 1RM','Best','PR'].forEach(function(h2){
+    h+='<th style="padding:2px 3px;font-weight:normal;min-width:30px;text-align:center">'+h2+'</th>';
+  });
+  h+='</tr></thead><tbody>';
+  var bestAll=[];var i;
+  for(i=1;i<=23;i++){
+    var tm=(ST.tms[id]&&ST.tms[id][i])||0;var maxE=0;var wi;
+    for(wi=0;wi<3;wi++){
+      var k=i+'_'+(wi+1);var aR=(ST.amraps[id]&&ST.amraps[id][k])||0;
+      var w=tm?cWt(tm,[0.85,0.90,0.95][wi]):0;var e=aR&&w?brz(w,aR):0;
+      if(e>maxE)maxE=e;
+    }
+    bestAll.push(maxE);
+  }
+  var allBest=0;for(i=0;i<bestAll.length;i++){if(bestAll[i]>allBest)allBest=bestAll[i];}
+  for(i=1;i<=23;i++){
+    var tm2=(ST.tms[id]&&ST.tms[id][i])||0;var isCur=ST.cycle===i;
+    h+='<tr style="border-bottom:1px solid #30363D;background:'+(isCur?'#FCC10011':'transparent')+'">';
+    h+='<td style="padding:3px;text-align:center;color:'+(isCur?'#FCC100':'#8B949E')+';font-weight:'+(isCur?'bold':'normal')+'">'+i+'</td>';
+    h+='<td style="padding:3px;text-align:center;color:#8B949E">'+(tm2||'-')+'</td>';
+    var rowBest=0;var pcts=[0.85,0.90,0.95];
+    for(var wi2=0;wi2<3;wi2++){
+      var k2=i+'_'+(wi2+1);var aR2=(ST.amraps[id]&&ST.amraps[id][k2])||0;
+      var w2=tm2?cWt(tm2,pcts[wi2]):0;var e2=aR2&&w2?brz(w2,aR2):0;
+      if(e2>rowBest)rowBest=e2;
+      h+='<td style="padding:2px;text-align:center"><input type="number" inputmode="decimal" class="am-inp" value="'+(aR2||'')+'" oninput="saveAmrap(\''+id+'\',\''+k2+'\',this.value)"></td>';
+      h+='<td style="padding:3px;text-align:center;color:#FF9800">'+(e2||'')+'</td>';
+    }
+    h+='<td style="padding:3px;text-align:center;font-weight:bold;color:'+(rowBest===allBest&&rowBest>0?'#FCC100':'#E6EDF3')+'">'+(rowBest||'-')+'</td>';
+    h+='<td style="padding:3px;text-align:center">'+(rowBest===allBest&&rowBest>0?'PR':'')+'</td>';
+    h+='</tr>';
+  }
+  h+='</tbody></table></div></div>';
+  return h;
+}
+
+function render(){
+  var ph=ST.phase;var phInfo=PHASES[Math.min(ph,3)-1]||PHASES[0];var content='';
+  if(ST.tab==='overview')content=buildOverview();
+  else if(ST.tab==='d1')content=buildDay(1);
+  else if(ST.tab==='d2')content=buildDay(2);
+  else if(ST.tab==='d3')content=buildDay(3);
+  else if(ST.tab==='d4')content=buildDay(4);
+  else if(ST.tab==='sprint')content=buildSprint();
+  else if(ST.tab==='daily')content=buildDaily();
+  else if(ST.tab==='tracker')content=buildTracker();
+
+  var hdr='<div class="hdr"><div>';
+  hdr+='<div style="font-size:16px;font-weight:bold;color:#FCC100;letter-spacing:.5px">5/3/1</div>';
+  hdr+='<div style="font-size:10px;color:#484F58">Cy '+ST.cycle+' - <span style="color:'+phInfo.clr+'">'+phInfo.full+'</span></div>';
+  hdr+='</div><div style="display:flex;gap:5px">';
+  for(var w=1;w<=4;w++){var a=ST.week===w;hdr+='<button class="wk" style="background:'+(a?'#FCC100':'#21262D')+';color:'+(a?'#0D1117':'#8B949E')+';font-weight:'+(a?'bold':'normal')+'" onclick="setWeek('+w+')">W'+w+'</button>';}
+  hdr+='</div></div>';
+
+  var tabs=[['overview','Overview'],['d1','Day 1'],['d2','Day 2'],['d3','Day 3'],['d4','Day 4'],['sprint','Sprint'],['daily','Daily'],['tracker','Tracker']];
+  var nav='<div class="nav">';
+  tabs.forEach(function(t){var a=ST.tab===t[0];nav+='<button class="nb" style="color:'+(a?'#FCC100':'#484F58')+';font-weight:'+(a?'bold':'normal')+'" onclick="setTab(\''+t[0]+'\')">'+t[1]+'</button>';});
+  nav+='</div>';
+
+  document.getElementById('root').innerHTML=hdr+'<div style="padding:14px 14px 0">'+content+'</div>'+nav;
+}
+
+load();render();
+</script>
+</body>
+</html>
